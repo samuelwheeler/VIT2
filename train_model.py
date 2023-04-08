@@ -40,7 +40,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(device)
 
 # define model:
-model = ViT_model.ViT(image_size = image_size, patch_size = patch_size, num_classes = 10, dim = 512, depth = 12, mlp_dim = 512, heads = 8, dropout = 0.2, emb_dropout = 0.2)
+model = ViT_model.ViT(image_size = image_size, patch_size = patch_size, num_classes = 10, dim = 512, depth = 12, mlp_dim = 512, heads = 8, dropout = 0.1, emb_dropout = 0.1)
 
 starting_epoch = 0
 
