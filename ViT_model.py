@@ -115,7 +115,7 @@ class SingleAttention(nn.Module):
         qv = self.to_qv(x).chunk(2, dim = -1)
         q, v = map(lambda t: rearrange(t, 'b n (h d) -> b h n d', h = self.heads), qv)
 
-        out = torch.matmul(q, v)
+        out = torch.matmul(q.transpose(-1,-2), v)
         out = rearrange(out, 'b h n d -> b n (h d)')
         return self.to_out(out)
 
