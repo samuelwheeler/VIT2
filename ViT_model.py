@@ -95,27 +95,32 @@ class QuarticAttention(nn.Module):
         out = rearrange(out, 'b h n d -> b n (h d)')
         return self.to_out(out)
     
-class SingleAttention(nn.Module):
+class NoSoftMaxAttention(nn.Module):
     def __init__(self, dim, heads = 8, dim_head = 64, dropout = 0.):
         super().__init__()
-        #inner_dim = dim_head *  heads
+        inner_dim = dim_head *  heads
         project_out = not (heads == 1 and dim_head == dim)
 
         self.heads = heads
+        #self.scale = dim_head ** -0.5
 
-        
-        self.to_qv = nn.Linear(dim, dim * 2, bias = False)
+        #self.attend = nn.Softmax(dim = -1)
+        self.to_qkv = nn.Linear(dim, inner_dim * 3, bias = False)
 
         self.to_out = nn.Sequential(
-            nn.Linear(dim, dim),
+            nn.Linear(inner_dim, dim),
             nn.Dropout(dropout)
         ) if project_out else nn.Identity()
 
     def forward(self, x):
-        qv = self.to_qv(x).chunk(2, dim = -1)
-        q, v = map(lambda t: rearrange(t, 'b n (h d) -> b h n d', h = self.heads), qv)
+        qkv = self.to_qkv(x).chunk(3, dim = -1)
+        q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> b h n d', h = self.heads), qkv)
 
-        out = torch.matmul(q.transpose(-1,-2), v)
+        dots = torch.matmul(q, k.transpose(-1, -2)) 
+
+        #attn = self.attend(dots)
+
+        out = torch.matmul(dots, v)
         out = rearrange(out, 'b h n d -> b n (h d)')
         return self.to_out(out)
 
@@ -135,10 +140,10 @@ class Transformer(nn.Module):
                     PreNorm(dim, QuarticAttention(dim, heads = heads, dim_head = dim_head, dropout = dropout)),
                     PreNorm(dim, FeedForward(dim, mlp_dim, dropout = dropout))
                 ]))
-        elif attention_type == 'single':
+        elif attention_type == 'no_softmax':
             for _ in range(depth):
                 self.layers.append(nn.ModuleList([
-                    PreNorm(dim, SingleAttention(dim, heads = heads, dim_head = dim_head, dropout = dropout)),
+                    PreNorm(dim, NoSoftMaxAttention(dim, heads = heads, dim_head = dim_head, dropout = dropout)),
                     PreNorm(dim, FeedForward(dim, mlp_dim, dropout = dropout))
                 ]))
 
