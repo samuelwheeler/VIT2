@@ -36,11 +36,11 @@ initial_lr = 0.0001
 
 
 # device 
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(device)
 
 # define model:
-model = ViT_model.ViT_Model(image_size = image_size, patch_size = patch_size, dim = dim, hidden_dim = hidden_dim, numblocks = numblocks)
+model = ViT_model.VIT(image_size = image_size, patch_size = patch_size, num_classes = numc_lasses, dim = dim, depth = 16, mlp_dim = dim, heads = 8)
 
 starting_epoch = 0
 
@@ -48,14 +48,16 @@ try:
    state = torch.load(state_path, map_location = device)
    model.load_state_dict(state['model_state_dict'])
    starting_epoch = state['epoch']
+   model= nn.DataParallel(model)
    model = model.to(device)
    optimizer = optim.Adam(model.parameters(), lr = initial_lr)
    optimizer.load_state_dict(state['optimizer_state_dict'])
    
 except:
-    model = model.to(device)
-    optimizer = optim.Adam(model.parameters(), lr = initial_lr)
-    print('No state found')
+   model= nn.DataParallel(model)
+   model = model.to(device)
+   optimizer = optim.Adam(model.parameters(), lr = initial_lr)
+   print('No state found')
 
 
 
