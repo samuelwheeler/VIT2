@@ -65,7 +65,7 @@ class Attention(nn.Module):
         out = rearrange(out, 'b h n d -> b n (h d)')
         return self.to_out(out)
     
-class QuarticAttention(nn.Module):
+class QuarticAttention(nn.Moduel):
     def __init__(self, dim, heads = 8, dim_head = 64, dropout = 0.):
         super().__init__()
         inner_dim = dim_head *  heads
@@ -94,6 +94,30 @@ class QuarticAttention(nn.Module):
         out = torch.matmul(attn, v)
         out = rearrange(out, 'b h n d -> b n (h d)')
         return self.to_out(out)
+    
+class SingleAttention(nn.Moduel):
+    def __init__(self, dim, heads = 8, dim_head = 64, dropout = 0.):
+        super().__init__()
+        #inner_dim = dim_head *  heads
+        project_out = not (heads == 1 and dim_head == dim)
+
+        self.heads = heads
+
+        
+        self.to_qv = nn.Linear(dim, dim * 2, bias = False)
+
+        self.to_out = nn.Sequential(
+            nn.Linear(dim, dim),
+            nn.Dropout(dropout)
+        ) if project_out else nn.Identity()
+
+    def forward(self, x):
+        qv = self.to_qv(x).chunk(2, dim = -1)
+        q, v = map(lambda t: rearrange(t, 'b n (h d) -> b h n d', h = self.heads), qv)
+
+        out = torch.matmul(q, v)
+        out = rearrange(out, 'b h n d -> b n (h d)')
+        return self.to_out(out)
 
 class Transformer(nn.Module):
     def __init__(self, attention_type, dim, depth, heads, dim_head, mlp_dim, dropout = 0.):
@@ -109,6 +133,12 @@ class Transformer(nn.Module):
             for _ in range(depth):
                 self.layers.append(nn.ModuleList([
                     PreNorm(dim, QuarticAttention(dim, heads = heads, dim_head = dim_head, dropout = dropout)),
+                    PreNorm(dim, FeedForward(dim, mlp_dim, dropout = dropout))
+                ]))
+        elif attention_type == 'single':
+            for _ in range(depth):
+                self.layers.append(nn.ModuleList([
+                    PreNorm(dim, SingleAttention(dim, heads = heads, dim_head = dim_head, dropout = dropout)),
                     PreNorm(dim, FeedForward(dim, mlp_dim, dropout = dropout))
                 ]))
 
