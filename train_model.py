@@ -28,7 +28,7 @@ hidden_dim = dim
 heads = 8
 #dropout = 0.1
 state_path = 'ViT_model_state'
-epochs = 20
+epochs = 50
 initial_lr = 0.0001
 
 
