@@ -354,12 +354,6 @@ class Transformer(nn.Module):
                     PreNorm(dim, AllRandomShuffleAttention(dim, heads = heads, dim_head = dim_head, dropout = dropout, l = num_patches + 1 )),
                     PreNorm(dim, FeedForward(dim, mlp_dim, dropout = dropout))
                 ]))
-        elif attention_type == 'allrandom_shuffled':
-            for _ in range(depth):
-                self.layers.append(nn.ModuleList([
-                    PreNorm(dim, AllRandomShuffleAttention(dim, heads = heads, dim_head = dim_head, dropout = dropout, l = num_patches + 1 )),
-                    PreNorm(dim, FeedForward(dim, mlp_dim, dropout = dropout))
-                ]))
         elif attention_type == 'qkrandom_shuffled':
             for _ in range(depth):
                 self.layers.append(nn.ModuleList([
