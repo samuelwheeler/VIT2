@@ -22,13 +22,13 @@ batch_size = 512
 image_size = (32,32)
 patch_size = (4,4)
 channels = 3
-dim = patch_size[0]*patch_size[1]*channels
-numblocks = 4
+dim = 512
+numblocks = 8
 hidden_dim = dim
-heads = 10
+heads = 8
 #dropout = 0.1
 state_path = 'ViT_model_state'
-epochs = 200
+epochs = 20
 initial_lr = 0.0001
 
 
@@ -40,24 +40,27 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(device)
 
 # define model:
-model = ViT_model.ViT(image_size = image_size, patch_size = patch_size, num_classes = 10, dim = 512, depth = 24, mlp_dim = 512, attention_type = 'standard', heads = 8, dropout = 0., emb_dropout = 0.)
-
+model = ViT(image_size = image_size, patch_size = patch_size, num_classes = 10, dim = dim, depth = numblocks, mlp_dim = dim, attention_type = 'qrandom_shuffled', 
+            heads = heads, dropout = 0., emb_dropout = 0.)
 starting_epoch = 0
 
-try:
-   state = torch.load(state_path, map_location = device)
-   model.load_state_dict(state['model_state_dict'])
-   starting_epoch = state['epoch']
-   model= nn.DataParallel(model)
-   model = model.to(device)
-   optimizer = optim.Adam(model.parameters(), lr = initial_lr)
-   optimizer.load_state_dict(state['optimizer_state_dict'])
+# try:
+#    state = torch.load(state_path, map_location = device)
+#    model.load_state_dict(state['model_state_dict'])
+#    starting_epoch = state['epoch']
+#    model= nn.DataParallel(model)
+#    model = model.to(device)
+#    optimizer = optim.Adam(model.parameters(), lr = initial_lr)
+#    optimizer.load_state_dict(state['optimizer_state_dict'])
    
-except:
-   model= nn.DataParallel(model)
-   model = model.to(device)
-   optimizer = optim.Adam(model.parameters(), lr = initial_lr)
-   print('No state found')
+# except:
+#    model= nn.DataParallel(model)
+#    model = model.to(device)
+#    optimizer = optim.Adam(model.parameters(), lr = initial_lr)
+#    print('No state found')
+model= nn.DataParallel(model)
+model = model.to(device)
+optimizer = optim.Adam(model.parameters(), lr = initial_lr)
 
 
 
