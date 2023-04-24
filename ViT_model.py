@@ -10,6 +10,20 @@ from einops import rearrange, repeat
 from einops.layers.torch import Rearrange
 
 
+
+import torch
+import torch.nn as nn
+import torch.optim as optim
+import torch.nn.functional as F
+import torch.backends.cudnn as cudnn
+import numpy as np
+import torchvision
+import torchvision.transforms as transforms
+from einops import rearrange, repeat
+from einops.layers.torch import Rearrange
+import random
+
+
 def pair(t):
     return t if isinstance(t, tuple) else (t, t)
 
@@ -56,7 +70,189 @@ class Attention(nn.Module):
     def forward(self, x):
         qkv = self.to_qkv(x).chunk(3, dim = -1)
         q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> b h n d', h = self.heads), qkv)
+        dots = torch.matmul(q, k.transpose(-1, -2)) * self.scale
 
+        attn = self.attend(dots)
+
+        out = torch.matmul(attn, v)
+        out = rearrange(out, 'b h n d -> b n (h d)')
+        return self.to_out(out)
+
+class AllRandomShuffleAttention(nn.Module):
+    def __init__(self, dim, l, heads = 8, dim_head = 64, dropout = 0.):
+        super().__init__()
+        inner_dim = dim_head *  heads
+        project_out = not (heads == 1 and dim_head == dim)
+
+        self.heads = heads
+        self.scale = dim_head ** -0.5
+        perm1 = list(range(dim)) + random.sample(range(dim, l*dim), (l-1)*dim)
+        perm2 = list(range(dim)) + random.sample(range(dim, l*dim), (l-1)*dim)
+        perm3 = list(range(dim)) + random.sample(range(dim, l*dim), (l-1)*dim)
+        self.permq = torch.tensor(perm1, requires_grad = False)
+        self.permk = torch.tensor(perm2, requires_grad = False)
+        self.permv = torch.tensor(perm3, requires_grad = False)
+        self.attend = nn.Softmax(dim = -1)
+
+        self.to_q = nn.Linear(dim, inner_dim, bias = False)
+        self.to_k = nn.Linear(dim, inner_dim, bias = False)
+        self.to_v = nn.Linear(dim, inner_dim, bias = False)
+        
+        self.to_out = nn.Sequential(
+            nn.Linear(inner_dim, dim),
+            nn.Dropout(dropout)
+        ) if project_out else nn.Identity()
+
+    def forward(self, x):
+        flat_x = x.flatten(start_dim=1)
+
+        flat_xq = flat_x[:, self.permq]
+        flat_xk = flat_x[:, self.permk]
+        flat_xv = flat_x[:, self.permv]
+
+
+        shuffled_xq = flat_xq.view(x.size())
+        shuffled_xk = flat_xk.view(x.size())
+        shuffled_xv = flat_xv.view(x.size())
+
+
+        q = self.to_q(shuffled_xq)
+        q = rearrange(q, 'b n (h d) -> b h n d', h = self.heads)
+
+        k = self.to_k(shuffled_xk)
+        k = rearrange(k, 'b n (h d) -> b h n d', h = self.heads)
+
+        v = self.to_v(shuffled_xv)
+        v = rearrange(v, 'b n (h d) -> b h n d', h = self.heads)
+        
+
+        dots = torch.matmul(q, k.transpose(-1, -2)) * self.scale
+        attn = self.attend(dots)
+        out = torch.matmul(attn, v)
+        out = rearrange(out, 'b h n d -> b n (h d)')
+        return self.to_out(out)
+
+class QKRandomShuffleAttention(nn.Module):
+    def __init__(self, dim, l, heads = 8, dim_head = 64, dropout = 0.):
+        super().__init__()
+        inner_dim = dim_head *  heads
+        project_out = not (heads == 1 and dim_head == dim)
+
+        self.heads = heads
+        self.scale = dim_head ** -0.5
+        perm1 = list(range(dim)) + random.sample(range(dim, l*dim), (l-1)*dim)
+        perm2 = list(range(dim)) + random.sample(range(dim, l*dim), (l-1)*dim)
+        self.permq = torch.tensor(perm1, requires_grad = False)
+        self.permk = torch.tensor(perm2, requires_grad = False)
+        self.attend = nn.Softmax(dim = -1)
+
+        self.to_q = nn.Linear(dim, inner_dim, bias = False)
+        self.to_k = nn.Linear(dim, inner_dim, bias = False)
+        self.to_v = nn.Linear(dim, inner_dim, bias = False)
+        
+        self.to_out = nn.Sequential(
+            nn.Linear(inner_dim, dim),
+            nn.Dropout(dropout)
+        ) if project_out else nn.Identity()
+
+    def forward(self, x):
+        flat_x = x.flatten(start_dim=1)
+
+        flat_xq = flat_x[:, self.permq]
+        flat_xk = flat_x[:, self.permk]
+
+
+        shuffled_xq = flat_xq.view(x.size())
+        shuffled_xk = flat_xk.view(x.size())
+
+
+        q = self.to_q(shuffled_xq)
+        q = rearrange(q, 'b n (h d) -> b h n d', h = self.heads)
+
+        k = self.to_k(shuffled_xk)
+        k = rearrange(k, 'b n (h d) -> b h n d', h = self.heads)
+
+        v = self.to_v(x)
+        v = rearrange(v, 'b n (h d) -> b h n d', h = self.heads)
+        
+
+        dots = torch.matmul(q, k.transpose(-1, -2)) * self.scale
+        attn = self.attend(dots)
+        out = torch.matmul(attn, v)
+        out = rearrange(out, 'b h n d -> b n (h d)')
+        return self.to_out(out)
+
+class QRandomShuffleAttention(nn.Module):
+    def __init__(self, dim, l, heads = 8, dim_head = 64, dropout = 0.):
+        super().__init__()
+        inner_dim = dim_head *  heads
+        project_out = not (heads == 1 and dim_head == dim)
+
+        self.heads = heads
+        self.scale = dim_head ** -0.5
+        perm1 = list(range(dim)) + random.sample(range(dim, l*dim), (l-1)*dim)
+        
+        self.permq = torch.tensor(perm1, requires_grad = False)
+        
+        self.attend = nn.Softmax(dim = -1)
+
+        self.to_q = nn.Linear(dim, inner_dim, bias = False)
+        self.to_k = nn.Linear(dim, inner_dim, bias = False)
+        self.to_v = nn.Linear(dim, inner_dim, bias = False)
+        
+        self.to_out = nn.Sequential(
+            nn.Linear(inner_dim, dim),
+            nn.Dropout(dropout)
+        ) if project_out else nn.Identity()
+
+    def forward(self, x):
+        flat_x = x.flatten(start_dim=1)
+
+        flat_xq = flat_x[:, self.permq]
+
+
+        shuffled_xq = flat_xq.view(x.size())
+    
+
+
+        q = self.to_q(shuffled_xq)
+        q = rearrange(q, 'b n (h d) -> b h n d', h = self.heads)
+
+        k = self.to_k(x)
+        k = rearrange(k, 'b n (h d) -> b h n d', h = self.heads)
+
+        v = self.to_v(x)
+        v = rearrange(v, 'b n (h d) -> b h n d', h = self.heads)
+        
+
+        dots = torch.matmul(q, k.transpose(-1, -2)) * self.scale
+        attn = self.attend(dots)
+        out = torch.matmul(attn, v)
+        out = rearrange(out, 'b h n d -> b n (h d)')
+        return self.to_out(out)
+
+class ShuffleRowAttention(nn.Module):
+    def __init__(self, dim, l, heads = 8, dim_head = 64, dropout = 0.):
+        super().__init__()
+        inner_dim = dim_head *  heads
+        project_out = not (heads == 1 and dim_head == dim)
+        perm = [0] + random.sample(range(1, l), l-1)
+        self.perm = torch.tensor(perm)
+        self.heads = heads
+        self.scale = dim_head ** -0.5
+
+        self.attend = nn.Softmax(dim = -1)
+        self.to_qkv = nn.Linear(dim, inner_dim * 3, bias = False)
+
+        self.to_out = nn.Sequential(
+            nn.Linear(inner_dim, dim),
+            nn.Dropout(dropout)
+        ) if project_out else nn.Identity()
+
+    def forward(self, x):
+        qkv = self.to_qkv(x).chunk(3, dim = -1)
+        q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> b h n d', h = self.heads), qkv)
+        q = q[:,:, self.perm]
         dots = torch.matmul(q, k.transpose(-1, -2)) * self.scale
 
         attn = self.attend(dots)
@@ -72,9 +268,9 @@ class QuarticAttention(nn.Module):
         project_out = not (heads == 1 and dim_head == dim)
 
         self.heads = heads
-        self.scale = dim_head ** -0.5
+        #self.scale = dim_head ** -0.5
 
-        self.attend = nn.Softmax(dim = -1)
+        #self.attend = nn.Softmax(dim = -1)
         self.to_qkv = nn.Linear(dim, inner_dim * 5, bias = False)
 
         self.to_out = nn.Sequential(
@@ -86,12 +282,12 @@ class QuarticAttention(nn.Module):
         qkv = self.to_qkv(x).chunk(5, dim = -1)
         q1, k1, q2, k2, v = map(lambda t: rearrange(t, 'b n (h d) -> b h n d', h = self.heads), qkv)
 
-        dots1 = torch.matmul(q1, k1.transpose(-1, -2)) * self.scale
-        dots2 = torch.matmul(q2, k2.transpose(-1, -2)) * self.scale
+        dots1 = torch.matmul(q1, k1.transpose(-1, -2)) 
+        dots2 = torch.matmul(q2, k2.transpose(-1, -2)) 
         dots = torch.matmul(dots1, dots2)
-        attn = self.attend(dots)
+        #attn = self.attend(dots)
 
-        out = torch.matmul(attn, v)
+        out = torch.matmul(dots, v)
         out = rearrange(out, 'b h n d -> b n (h d)')
         return self.to_out(out)
     
@@ -125,7 +321,7 @@ class NoSoftMaxAttention(nn.Module):
         return self.to_out(out)
 
 class Transformer(nn.Module):
-    def __init__(self, attention_type, dim, depth, heads, dim_head, mlp_dim, dropout = 0.):
+    def __init__(self, attention_type, dim, depth, heads, dim_head, mlp_dim, num_patches, dropout = 0.):
         super().__init__()
         self.layers = nn.ModuleList([])
         if attention_type == 'standard':
@@ -144,6 +340,36 @@ class Transformer(nn.Module):
             for _ in range(depth):
                 self.layers.append(nn.ModuleList([
                     PreNorm(dim, NoSoftMaxAttention(dim, heads = heads, dim_head = dim_head, dropout = dropout)),
+                    PreNorm(dim, FeedForward(dim, mlp_dim, dropout = dropout))
+                ]))
+        elif attention_type == 'row_shuffled':
+            for _ in range(depth):
+                self.layers.append(nn.ModuleList([
+                    PreNorm(dim, ShuffleRowAttention(dim, heads = heads, dim_head = dim_head, dropout = dropout, l = num_patches + 1 )),
+                    PreNorm(dim, FeedForward(dim, mlp_dim, dropout = dropout))
+                ]))
+        elif attention_type == 'allrandom_shuffled':
+            for _ in range(depth):
+                self.layers.append(nn.ModuleList([
+                    PreNorm(dim, RandomShuffleAttention(dim, heads = heads, dim_head = dim_head, dropout = dropout, l = num_patches + 1 )),
+                    PreNorm(dim, FeedForward(dim, mlp_dim, dropout = dropout))
+                ]))
+        elif attention_type == 'allrandom_shuffled':
+            for _ in range(depth):
+                self.layers.append(nn.ModuleList([
+                    PreNorm(dim, AllRandomShuffleAttention(dim, heads = heads, dim_head = dim_head, dropout = dropout, l = num_patches + 1 )),
+                    PreNorm(dim, FeedForward(dim, mlp_dim, dropout = dropout))
+                ]))
+        elif attention_type == 'qkrandom_shuffled':
+            for _ in range(depth):
+                self.layers.append(nn.ModuleList([
+                    PreNorm(dim, QKRandomShuffleAttention(dim, heads = heads, dim_head = dim_head, dropout = dropout, l = num_patches + 1 )),
+                    PreNorm(dim, FeedForward(dim, mlp_dim, dropout = dropout))
+                ]))
+        elif attention_type == 'qrandom_shuffled':
+            for _ in range(depth):
+                self.layers.append(nn.ModuleList([
+                    PreNorm(dim, QRandomShuffleAttention(dim, heads = heads, dim_head = dim_head, dropout = dropout, l = num_patches + 1 )),
                     PreNorm(dim, FeedForward(dim, mlp_dim, dropout = dropout))
                 ]))
 
@@ -174,7 +400,7 @@ class ViT(nn.Module):
         self.cls_token = nn.Parameter(torch.randn(1, 1, dim))
         self.dropout = nn.Dropout(emb_dropout)
 
-        self.transformer = Transformer(attention_type, dim, depth, heads, dim_head, mlp_dim, dropout)
+        self.transformer = Transformer(attention_type = attention_type, dim = dim, depth = depth, heads = heads, dim_head = dim_head, mlp_dim = mlp_dim, dropout = dropout, num_patches = num_patches)
 
         self.pool = pool
         self.to_latent = nn.Identity()
