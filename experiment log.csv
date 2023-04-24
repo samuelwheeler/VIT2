@@ -1,0 +1,13 @@
+﻿Domain,Attention Type,Epochs,Layers,Data dimension,Model Dimension,Inner Dimension,Heads,Dropout,Patch Size,Batch Size,Final Train ACC,Final Test ACC
+CIFAR 10 Classification,Standard,20,8,48,512,64,8,0,4x4,512,0.7068,0.6972
+CIFAR 10 Classification,Shuffled Rows,20,8,48,512,64,8,0,4x4,512,0.6962,0.6908
+CIFAR 10 Classification,Standard,20,4,48,512,64,8,0,4x4,512,0.63938,0.6412
+CIFAR 10 Classification,X_q random shuffle,20,8,48,512,64,8,0,4x4,512,0.7033,0.6902
+CIFAR 10 Classification,X_qk random shuffle,20,8,48,512,64,8,0,4x4,512,0.63138,0.6227
+CIFAR 10 Classification,all random shuffle,20,8,48,512,64,8,0,4x4,512,0.611,0.6074
+,,,,,,,,,,,,
+CIFAR 10 Classification,Standard,50,8,48,512,64,8,0,4x4,512,0.83934,0.7669
+CIFAR 10 Classification,X_q random shuffle,50,8,48,512,64,8,0,4x4,512,0.83314,0.757
+CIFAR 10 Classification,X_qk random shuffle,50,8,48,512,64,8,0,4x4,512,0.77454,0.7213
+CIFAR 10 Classification,full random shuffle,50,8,48,512,64,8,0,4x4,512,0.72608,0.6785
+CIFAR 10 Classification,row shuffle,50,8,48,512,64,8,0,4x4,512,0.82684,0.756
