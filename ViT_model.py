@@ -64,6 +64,28 @@ class Attention(nn.Module):
         out = torch.matmul(attn, v)
         out = rearrange(out, 'b h n d -> b n (h d)')
         return self.to_out(out)
+    
+class QuadraticAttention(nn.Module):
+    def __init__(self, dim, l,  heads = 8, dim_head = 64, dropout = 0.):
+        super().__init__()
+        #inner_dim = dim_head *  heads
+        #project_out = not (heads == 1 and dim_head == dim)
+
+        self.heads = heads
+        self.scale = dim_head ** -0.5
+
+        self.attend = nn.Softmax(dim = -1)
+        self.middle_matrix = nn.Linear(dim, l, bias = False)
+
+        # self.to_out = nn.Sequential(
+        #     nn.Linear(inner_dim, dim),
+        #     nn.Dropout(dropout)
+        # ) if project_out else nn.Identity()
+
+    def forward(self, x):
+        out = torch.matmul(self.middle_matrix(x), x)
+        return self.to_out(out)
+
 
 class AllRandomShuffleAttention(nn.Module):
     def __init__(self, dim, l, heads = 8, dim_head = 64, dropout = 0.):
