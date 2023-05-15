@@ -690,25 +690,25 @@ class ViT(nn.Module):
             nn.LayerNorm(dim),
             nn.Linear(dim, num_classes)
         )
-        # if self.fixed_size:
-        #     self.first_transformer = Transformer(attention_type = 'standard', dim = dim, depth = 2, heads = heads, dim_head = dim_head, mlp_dim = mlp_dim,
-        #                                dropout = dropout, num_patches = num_patches, fixed_size = False)
-        #     #self.fix_length = nn.Linear(dim, 64, bias = False)
-        #     self.fl_net = nn.Sequential(
-        #         nn.Linear(dim, 64),
-        #         nn.GELU(),
-        #         nn.Dropout(dropout),
-        #         nn.Linear(64, 64),
-        #         nn.Dropout(dropout)
-        #     )
-        #     self.fl_normer= nn.LayerNorm(dim)
-        #     self.fl_next = nn.Sequential(
-        #         nn.Linear(dim, 64),
-        #         nn.GELU(),
-        #         nn.Dropout(dropout),
-        #         nn.Linear(64, dim),
-        #         nn.Dropout(dropout)
-        #     )
+        if self.fixed_size:
+            self.first_transformer = Transformer(attention_type = 'standard', dim = dim, depth = 2, heads = heads, dim_head = dim_head, mlp_dim = mlp_dim,
+                                       dropout = dropout, num_patches = num_patches, fixed_size = False)
+            #self.fix_length = nn.Linear(dim, 64, bias = False)
+            self.fl_net = nn.Sequential(
+                nn.Linear(dim, 64),
+                nn.GELU(),
+                nn.Dropout(dropout),
+                nn.Linear(64, 64),
+                nn.Dropout(dropout)
+            )
+            self.fl_normer= nn.LayerNorm(dim)
+            self.fl_next = nn.Sequential(
+                nn.Linear(dim, 64),
+                nn.GELU(),
+                nn.Dropout(dropout),
+                nn.Linear(64, dim),
+                nn.Dropout(dropout)
+            )
         
         self.atn_type = attention_type
 
@@ -717,16 +717,17 @@ class ViT(nn.Module):
         b, n, _ = x.shape
 
         cls_tokens = repeat(self.cls_token, '() n d -> b n d', b = b)
+        
+        
+        x = torch.cat((cls_tokens, x), dim=1)
+        x += self.pos_embedding[:, :(64 + 1)]
+        x = self.dropout(x)
         if self.fixed_size:
             x = self.first_transformer(x)
             y = self.fl_net(x)
             x = torch.matmul(y.transpose(-1, -2),x)
             #x = self.fl_normer(x)
             #x = self.fl_next(x)
-        
-        x = torch.cat((cls_tokens, x), dim=1)
-        x += self.pos_embedding[:, :(64 + 1)]
-        x = self.dropout(x)
         if self.atn_type == 'transposed':
             x = self.first_transformer(x)
             x = self.first(x)
