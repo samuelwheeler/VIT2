@@ -140,8 +140,8 @@ for epoch in range(epochs):
         _, preds = torch.max(outputs.data, 1)
         train_correct += (preds == target).sum().item()
         train_total += target.size(0)
-        if batch_idx%100 == 0:
-            print(f'Loss: {loss.item()}')
+#         if batch_idx%100 == 0:
+#             print(f'Loss: {loss.item()}')
     scheduler.step()
     test_correct = 0
     test_total = 0
