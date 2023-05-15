@@ -673,7 +673,7 @@ class ViT(nn.Module):
         self.pos_embedding = nn.Parameter(torch.randn(1, num_patches + 1, dim))
         self.cls_token = nn.Parameter(torch.randn(1, 1, dim))
         self.dropout = nn.Dropout(emb_dropout)
-        if fixed_size:
+        if fixed_size or attention_type == 'transposed':
             self.transformer = Transformer(attention_type = attention_type, dim = dim, depth = depth-2, heads = heads, dim_head = dim_head, mlp_dim = mlp_dim,
                                         dropout = dropout, num_patches = num_patches, fixed_size = self.fixed_size)
         else:
@@ -681,6 +681,8 @@ class ViT(nn.Module):
                                         dropout = dropout, num_patches = num_patches, fixed_size = self.fixed_size)
         if attention_type == 'transposed':
             self.first = TransposedAttention(dim)
+            self.first_transformer = Transformer(attention_type = 'standard', dim = dim, depth = 2, heads = heads, dim_head = dim_head, mlp_dim = mlp_dim,
+                                                 dropout = dropout, num_patches = num_patches, fixed_size = False)
         self.pool = pool
         self.to_latent = nn.Identity()
 
@@ -688,25 +690,26 @@ class ViT(nn.Module):
             nn.LayerNorm(dim),
             nn.Linear(dim, num_classes)
         )
-        if self.fixed_size:
-            self.first_transformer = Transformer(attention_type = 'standard', dim = dim, depth = 2, heads = heads, dim_head = dim_head, mlp_dim = mlp_dim,
-                                       dropout = dropout, num_patches = num_patches, fixed_size = False)
-            #self.fix_length = nn.Linear(dim, 64, bias = False)
-            self.fl_net = nn.Sequential(
-                nn.Linear(dim, 64),
-                nn.GELU(),
-                nn.Dropout(dropout),
-                nn.Linear(64, 64),
-                nn.Dropout(dropout)
-            )
-            self.fl_normer= nn.LayerNorm(dim)
-            self.fl_next = nn.Sequential(
-                nn.Linear(dim, 64),
-                nn.GELU(),
-                nn.Dropout(dropout),
-                nn.Linear(64, dim),
-                nn.Dropout(dropout)
-            )
+        # if self.fixed_size:
+        #     self.first_transformer = Transformer(attention_type = 'standard', dim = dim, depth = 2, heads = heads, dim_head = dim_head, mlp_dim = mlp_dim,
+        #                                dropout = dropout, num_patches = num_patches, fixed_size = False)
+        #     #self.fix_length = nn.Linear(dim, 64, bias = False)
+        #     self.fl_net = nn.Sequential(
+        #         nn.Linear(dim, 64),
+        #         nn.GELU(),
+        #         nn.Dropout(dropout),
+        #         nn.Linear(64, 64),
+        #         nn.Dropout(dropout)
+        #     )
+        #     self.fl_normer= nn.LayerNorm(dim)
+        #     self.fl_next = nn.Sequential(
+        #         nn.Linear(dim, 64),
+        #         nn.GELU(),
+        #         nn.Dropout(dropout),
+        #         nn.Linear(64, dim),
+        #         nn.Dropout(dropout)
+        #     )
+        
         self.atn_type = attention_type
 
     def forward(self, img):
@@ -725,6 +728,7 @@ class ViT(nn.Module):
         x += self.pos_embedding[:, :(64 + 1)]
         x = self.dropout(x)
         if self.atn_type == 'transposed':
+            x = self.first_transformer(x)
             x = self.first(x)
         x = self.transformer(x)
         x = x.mean(dim = 1) if self.pool == 'mean' else x[:, 0]
