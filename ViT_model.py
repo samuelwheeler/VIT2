@@ -674,7 +674,7 @@ class ViT(nn.Module):
         self.cls_token = nn.Parameter(torch.randn(1, 1, dim))
         self.dropout = nn.Dropout(emb_dropout)
         if fixed_size or attention_type == 'transposed':
-            self.transformer = Transformer(attention_type = attention_type, dim = dim, depth = depth-2, heads = heads, dim_head = dim_head, mlp_dim = mlp_dim,
+            self.transformer = Transformer(attention_type = attention_type, dim = dim, depth = depth, heads = heads, dim_head = dim_head, mlp_dim = mlp_dim,
                                         dropout = dropout, num_patches = num_patches, fixed_size = self.fixed_size)
         else:
             self.transformer = Transformer(attention_type = attention_type, dim = dim, depth = depth, heads = heads, dim_head = dim_head, mlp_dim = mlp_dim,
