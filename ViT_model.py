@@ -677,6 +677,7 @@ class ViT(nn.Module):
         self.transformer = Transformer(attention_type = attention_type, dim = dim, depth = depth, heads = heads, dim_head = dim_head, mlp_dim = mlp_dim,
                                         dropout = dropout, num_patches = num_patches, fixed_size = self.fixed_size)
         if attention_type == 'transposed':
+            self.pos_emb2 = nn.Parameter(torch.randn(1, num_patches + 1, dim))
             self.first = TransposedAttention(dim)
             self.first_transformer = Transformer(attention_type = 'standard', dim = dim, depth = pre_layers, heads = heads, dim_head = dim_head, mlp_dim = mlp_dim,
                                                  dropout = dropout, num_patches = num_patches, fixed_size = False)
@@ -728,6 +729,7 @@ class ViT(nn.Module):
         if self.atn_type == 'transposed':
             x = self.first_transformer(x)
             x = self.first(x)
+            x += self.pos_emb2[:, :(64)]
         x = self.transformer(x)
         x = x.mean(dim = 1) if self.pool == 'mean' else x[:, 0]
 
