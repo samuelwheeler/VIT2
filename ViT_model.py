@@ -634,7 +634,7 @@ class ViT(nn.Module):
         self.cls_token = nn.Parameter(torch.randn(1, 1, dim))
         self.dropout = nn.Dropout(emb_dropout)
         if fixed_size:
-            self.transformer = Transformer(attention_type = attention_type, dim = dim, depth = depth-2, heads = heads, dim_head = dim_head, mlp_dim = mlp_dim,
+            self.transformer = Transformer(attention_type = attention_type, dim = dim, depth = depth-4, heads = heads, dim_head = dim_head, mlp_dim = mlp_dim,
                                         dropout = dropout, num_patches = num_patches, fixed_size = self.fixed_size)
         else:
             self.transformer = Transformer(attention_type = attention_type, dim = dim, depth = depth, heads = heads, dim_head = dim_head, mlp_dim = mlp_dim,
@@ -648,7 +648,7 @@ class ViT(nn.Module):
             nn.Linear(dim, num_classes)
         )
         if self.fixed_size:
-            self.first_transformer = Transformer(attention_type = 'standard', dim = dim, depth = 2, heads = heads, dim_head = dim_head, mlp_dim = mlp_dim,
+            self.first_transformer = Transformer(attention_type = 'standard', dim = dim, depth = 4, heads = heads, dim_head = dim_head, mlp_dim = mlp_dim,
                                        dropout = dropout, num_patches = num_patches, fixed_size = False)
             #self.fix_length = nn.Linear(dim, 64, bias = False)
             self.fl_net = nn.Sequential(
