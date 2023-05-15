@@ -23,14 +23,14 @@ image_size = (32,32)
 patch_size = (4,4)
 channels = 3
 dim = 512
-numblocks = 8
+numblocks = 6
 hidden_dim = dim
 heads = 8
 #dropout = 0.1
 state_path = 'ViT_model_state'
 epochs = 20
 initial_lr = 0.0001
-pre_layers = 1
+pre_layers = 2
 
 
 
