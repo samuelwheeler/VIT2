@@ -715,6 +715,7 @@ class ViT(nn.Module):
                 nn.Linear(64, dim),
                 nn.Dropout(dropout)
             )
+            self.softmax = nn.Softmax(dim = -1)
         
         self.atn_type = attention_type
 
@@ -732,7 +733,7 @@ class ViT(nn.Module):
             y = self.first_transformer(x)
             y = self.fl_net1(y)
             #x = self.fl_net2(x)
-            x = torch.matmul(y.transpose(-1, -2),x)
+            x = torch.matmul(self.softmax(y.transpose(-1, -2)),x)
             #x = self.fl_next(x)
             #x = self.fl_normer(x)
             #x = self.fl_next(x)
