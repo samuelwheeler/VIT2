@@ -23,7 +23,7 @@ image_size = (32,32)
 patch_size = (4,4)
 channels = 3
 dim = 512
-numblocks = 8
+numblocks = 4
 hidden_dim = dim
 heads = 8
 #dropout = 0.1
@@ -41,7 +41,7 @@ print(device)
 
 # define model:
 model = ViT_model.ViT(image_size = image_size, patch_size = patch_size, num_classes = 10, dim = dim, depth = numblocks, mlp_dim = dim, attention_type = 'standard', 
-            heads = heads, dropout = 0., emb_dropout = 0., fixed_size = True)
+            heads = heads, dropout = 0., emb_dropout = 0., fixed_size = False)
 starting_epoch = 0
 
 # try:
