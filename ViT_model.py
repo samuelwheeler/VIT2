@@ -716,7 +716,7 @@ class ViT(nn.Module):
                 nn.Dropout(dropout)
             )
             self.softmax = nn.Softmax(dim = -1)
-            self.scale = dim ** -0.5
+            self.scale = 64 ** -0.5
         
         self.atn_type = attention_type
 
