@@ -528,7 +528,7 @@ class NoSoftMaxAttention(nn.Module):
         return self.to_out(out)
 
 class Transformer(nn.Module):
-    def __init__(self, attention_type, dim, depth, heads, dim_head, mlp_dim, num_patches, dropout = 0.):
+    def __init__(self, attention_type, dim, depth, heads, dim_head, mlp_dim, num_patches, fixed_size, dropout = 0.):
         super().__init__()
         self.layers = nn.ModuleList([])
         if attention_type == 'standard':
@@ -552,55 +552,55 @@ class Transformer(nn.Module):
         elif attention_type == 'row_shuffled':
             for _ in range(depth):
                 self.layers.append(nn.ModuleList([
-                    PreNorm(dim, ShuffleRowAttention(dim, heads = heads, dim_head = dim_head, dropout = dropout, l = num_patches + 1 )),
+                    PreNorm(dim, ShuffleRowAttention(dim, heads = heads, dim_head = dim_head, dropout = dropout, l = dim if fixed_size else num_patches + 1 )),
                     PreNorm(dim, FeedForward(dim, mlp_dim, dropout = dropout))
                 ]))
         elif attention_type == 'allrandom_shuffled':
             for _ in range(depth):
                 self.layers.append(nn.ModuleList([
-                    PreNorm(dim, AllRandomShuffleAttention(dim, heads = heads, dim_head = dim_head, dropout = dropout, l = num_patches + 1 )),
+                    PreNorm(dim, AllRandomShuffleAttention(dim, heads = heads, dim_head = dim_head, dropout = dropout, l = dim if fixed_size else num_patches + 1 )),
                     PreNorm(dim, FeedForward(dim, mlp_dim, dropout = dropout))
                 ]))
         elif attention_type == 'qkrandom_shuffled':
             for _ in range(depth):
                 self.layers.append(nn.ModuleList([
-                    PreNorm(dim, QKRandomShuffleAttention(dim, heads = heads, dim_head = dim_head, dropout = dropout, l = num_patches + 1 )),
+                    PreNorm(dim, QKRandomShuffleAttention(dim, heads = heads, dim_head = dim_head, dropout = dropout, l = dim if fixed_size else num_patches + 1 )),
                     PreNorm(dim, FeedForward(dim, mlp_dim, dropout = dropout))
                 ]))
         elif attention_type == 'qrandom_shuffled':
             for _ in range(depth):
                 self.layers.append(nn.ModuleList([
-                    PreNorm(dim, QRandomShuffleAttention(dim, heads = heads, dim_head = dim_head, dropout = dropout, l = num_patches + 1 )),
+                    PreNorm(dim, QRandomShuffleAttention(dim, heads = heads, dim_head = dim_head, dropout = dropout, l = dim if fixed_size else num_patches + 1 )),
                     PreNorm(dim, FeedForward(dim, mlp_dim, dropout = dropout))
                 ]))
         elif attention_type == 'quadratic':
             for _ in range(depth):
                 self.layers.append(nn.ModuleList([
-                    PreNorm(dim, QuadraticAttention(dim, heads = heads, dim_head = dim_head, dropout = dropout, l = num_patches + 1 )),
+                    PreNorm(dim, QuadraticAttention(dim, heads = heads, dim_head = dim_head, dropout = dropout, l = dim if fixed_size else num_patches + 1 )),
                     PreNorm(dim, FeedForward(dim, mlp_dim, dropout = dropout))
                 ]))
         elif attention_type == 'krandom_shuffled':
             for _ in range(depth):
                 self.layers.append(nn.ModuleList([
-                    PreNorm(dim, KRandomShuffleAttention(dim, heads = heads, dim_head = dim_head, dropout = dropout, l = num_patches + 1 )),
+                    PreNorm(dim, KRandomShuffleAttention(dim, heads = heads, dim_head = dim_head, dropout = dropout, l = dim if fixed_size else num_patches + 1 )),
                     PreNorm(dim, FeedForward(dim, mlp_dim, dropout = dropout))
                 ]))
         elif attention_type == 'vrandom_shuffled':
             for _ in range(depth):
                 self.layers.append(nn.ModuleList([
-                    PreNorm(dim, VRandomShuffleAttention(dim, heads = heads, dim_head = dim_head, dropout = dropout, l = num_patches + 1 )),
+                    PreNorm(dim, VRandomShuffleAttention(dim, heads = heads, dim_head = dim_head, dropout = dropout, l = dim if fixed_size else num_patches + 1 )),
                     PreNorm(dim, FeedForward(dim, mlp_dim, dropout = dropout))
                 ]))
         elif attention_type == 'kvrandom_shuffled':
             for _ in range(depth):
                 self.layers.append(nn.ModuleList([
-                    PreNorm(dim, KVRandomShuffleAttention(dim, heads = heads, dim_head = dim_head, dropout = dropout, l = num_patches + 1 )),
+                    PreNorm(dim, KVRandomShuffleAttention(dim, heads = heads, dim_head = dim_head, dropout = dropout, l = dim if fixed_size else num_patches + 1 )),
                     PreNorm(dim, FeedForward(dim, mlp_dim, dropout = dropout))
                 ]))
         elif attention_type == 'qvrandom_shuffled':
             for _ in range(depth):
                 self.layers.append(nn.ModuleList([
-                    PreNorm(dim, QVRandomShuffleAttention(dim, heads = heads, dim_head = dim_head, dropout = dropout, l = num_patches + 1 )),
+                    PreNorm(dim, QVRandomShuffleAttention(dim, heads = heads, dim_head = dim_head, dropout = dropout, l = dim if fixed_size else num_patches + 1 )),
                     PreNorm(dim, FeedForward(dim, mlp_dim, dropout = dropout))
                 ]))
 
@@ -613,11 +613,12 @@ class Transformer(nn.Module):
         return x
 
 class ViT(nn.Module):
-    def __init__(self, *, image_size, patch_size, num_classes, dim, depth, heads, mlp_dim, attention_type, pool = 'cls', channels = 3, dim_head = 64, dropout = 0., emb_dropout = 0.):
+    def __init__(self, *, image_size, patch_size, num_classes, dim, depth, heads, mlp_dim, attention_type, pool = 'cls', channels = 3, dim_head = 64, dropout = 0.,
+                 emb_dropout = 0., fixed_size = False):
         super().__init__()
         image_height, image_width = pair(image_size)
         patch_height, patch_width = pair(patch_size)
-
+        self.fixed_size = fixed_size
         assert image_height % patch_height == 0 and image_width % patch_width == 0, 'Image dimensions must be divisible by the patch size.'
 
         num_patches = (image_height // patch_height) * (image_width // patch_width)
@@ -633,7 +634,8 @@ class ViT(nn.Module):
         self.cls_token = nn.Parameter(torch.randn(1, 1, dim))
         self.dropout = nn.Dropout(emb_dropout)
 
-        self.transformer = Transformer(attention_type = attention_type, dim = dim, depth = depth, heads = heads, dim_head = dim_head, mlp_dim = mlp_dim, dropout = dropout, num_patches = num_patches)
+        self.transformer = Transformer(attention_type = attention_type, dim = dim, depth = depth-1, heads = heads, dim_head = dim_head, mlp_dim = mlp_dim,
+                                       dropout = dropout, num_patches = num_patches, fixed_size = self.fixed_size)
 
         self.pool = pool
         self.to_latent = nn.Identity()
@@ -642,18 +644,42 @@ class ViT(nn.Module):
             nn.LayerNorm(dim),
             nn.Linear(dim, num_classes)
         )
+        if self.fixed_size:
+            self.first_transformer = Transformer(attention_type = attention_type, dim = dim, depth = 1, heads = heads, dim_head = dim_head, mlp_dim = mlp_dim,
+                                       dropout = dropout, num_patches = num_patches, fixed_size = False)
+            #self.fix_length = nn.Linear(dim, 64, bias = False)
+            self.fl_net = nn.Sequential(
+                nn.Linear(dim, 64),
+                nn.GELU(),
+                nn.Dropout(dropout),
+                nn.Linear(64, 64),
+                nn.Dropout(dropout)
+            )
+            self.fl_normer= nn.LayerNorm(dim)
+            self.fl_next = nn.Sequential(
+                nn.Linear(dim, 64),
+                nn.GELU(),
+                nn.Dropout(dropout),
+                nn.Linear(64, dim),
+                nn.Dropout(dropout)
+            )
 
     def forward(self, img):
         x = self.to_patch_embedding(img)
         b, n, _ = x.shape
 
         cls_tokens = repeat(self.cls_token, '() n d -> b n d', b = b)
+        if self.fixed_size:
+            x = self.first_transformer(x)
+            y = self.fl_net(x)
+            x = torch.matmul(y.transpose(-1, -2),x)
+            #x = self.fl_normer(x)
+            #x = self.fl_next(x)
+            
         x = torch.cat((cls_tokens, x), dim=1)
-        x += self.pos_embedding[:, :(n + 1)]
+        x += self.pos_embedding[:, :(64 + 1)]
         x = self.dropout(x)
-
         x = self.transformer(x)
-
         x = x.mean(dim = 1) if self.pool == 'mean' else x[:, 0]
 
         x = self.to_latent(x)
