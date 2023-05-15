@@ -61,9 +61,42 @@ class Attention(nn.Module):
 
         attn = self.attend(dots)
 
+
         out = torch.matmul(attn, v)
         out = rearrange(out, 'b h n d -> b n (h d)')
         return self.to_out(out)
+
+class TransposedAttention(nn.Module):
+    def __init__(self, dim, heads = 8, dim_head = 64, dropout = 0.):
+        super().__init__()
+        inner_dim = dim_head *  heads
+        project_out = not (heads == 1 and dim_head == dim)
+
+        self.heads = heads
+        self.scale = dim_head ** -0.5
+
+        self.attend = nn.Softmax(dim = -1)
+        self.to_qkv = nn.Linear(dim, inner_dim * 4, bias = False)
+
+        self.to_out = nn.Sequential(
+            nn.Linear(inner_dim, dim),
+            nn.Dropout(dropout)
+        ) if project_out else nn.Identity()
+
+    def forward(self, x):
+        qkv = self.to_qkv(x).chunk(4, dim = -1)
+        q, k, v, v2 = map(lambda t: rearrange(t, 'b n (h d) -> b h n d', h = self.heads), qkv)
+        dots = torch.matmul(q.transpose(-1,-2), k) * self.scale
+
+        attn = self.attend(dots)
+        
+        v = v.transpose(-1,-2)
+
+        v = torch.matmul(v, v2)
+        out = torch.matmul(attn, v)
+        out = rearrange(out, 'b h n d -> b n (h d)')
+        return self.to_out(out)
+
     
 class QuadraticAttention(nn.Module):
     def __init__(self, dim, l,  heads = 8, dim_head = 64, dropout = 0.):
@@ -256,6 +289,7 @@ class KRandomShuffleAttention(nn.Module):
         self.to_q = nn.Linear(dim, inner_dim, bias = False)
         self.to_k = nn.Linear(dim, inner_dim, bias = False)
         self.to_v = nn.Linear(dim, inner_dim, bias = False)
+
         
         self.to_out = nn.Sequential(
             nn.Linear(inner_dim, dim),
@@ -603,6 +637,12 @@ class Transformer(nn.Module):
                     PreNorm(dim, QVRandomShuffleAttention(dim, heads = heads, dim_head = dim_head, dropout = dropout, l = dim if fixed_size else num_patches + 1 )),
                     PreNorm(dim, FeedForward(dim, mlp_dim, dropout = dropout))
                 ]))
+        elif attention_type == 'transposed':
+            for _ in range(depth):
+                self.layers.append(nn.ModuleList([
+                    PreNorm(dim, TransposedAttention(dim, heads = heads, dim_head = dim_head, dropout = dropout)),
+                    PreNorm(dim, FeedForward(dim, mlp_dim, dropout = dropout))
+                ]))
 
 
 
@@ -634,12 +674,13 @@ class ViT(nn.Module):
         self.cls_token = nn.Parameter(torch.randn(1, 1, dim))
         self.dropout = nn.Dropout(emb_dropout)
         if fixed_size:
-            self.transformer = Transformer(attention_type = attention_type, dim = dim, depth = depth-4, heads = heads, dim_head = dim_head, mlp_dim = mlp_dim,
+            self.transformer = Transformer(attention_type = attention_type, dim = dim, depth = depth-2, heads = heads, dim_head = dim_head, mlp_dim = mlp_dim,
                                         dropout = dropout, num_patches = num_patches, fixed_size = self.fixed_size)
         else:
             self.transformer = Transformer(attention_type = attention_type, dim = dim, depth = depth, heads = heads, dim_head = dim_head, mlp_dim = mlp_dim,
                                         dropout = dropout, num_patches = num_patches, fixed_size = self.fixed_size)
-
+        if attention_type == 'transposed':
+            self.first = TransposedAttention(dim)
         self.pool = pool
         self.to_latent = nn.Identity()
 
@@ -648,7 +689,7 @@ class ViT(nn.Module):
             nn.Linear(dim, num_classes)
         )
         if self.fixed_size:
-            self.first_transformer = Transformer(attention_type = 'standard', dim = dim, depth = 4, heads = heads, dim_head = dim_head, mlp_dim = mlp_dim,
+            self.first_transformer = Transformer(attention_type = 'standard', dim = dim, depth = 2, heads = heads, dim_head = dim_head, mlp_dim = mlp_dim,
                                        dropout = dropout, num_patches = num_patches, fixed_size = False)
             #self.fix_length = nn.Linear(dim, 64, bias = False)
             self.fl_net = nn.Sequential(
@@ -666,6 +707,7 @@ class ViT(nn.Module):
                 nn.Linear(64, dim),
                 nn.Dropout(dropout)
             )
+        self.atn_type = attention_type
 
     def forward(self, img):
         x = self.to_patch_embedding(img)
@@ -678,10 +720,12 @@ class ViT(nn.Module):
             x = torch.matmul(y.transpose(-1, -2),x)
             #x = self.fl_normer(x)
             #x = self.fl_next(x)
-            
+        
         x = torch.cat((cls_tokens, x), dim=1)
         x += self.pos_embedding[:, :(64 + 1)]
         x = self.dropout(x)
+        if self.atn_type == 'transposed':
+            x = self.first(x)
         x = self.transformer(x)
         x = x.mean(dim = 1) if self.pool == 'mean' else x[:, 0]
 
