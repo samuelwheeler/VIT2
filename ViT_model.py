@@ -640,7 +640,7 @@ class Transformer(nn.Module):
         elif attention_type == 'transposed':
             for _ in range(depth):
                 self.layers.append(nn.ModuleList([
-                    PreNorm(dim, TransposedAttention(dim, heads = heads, dim_head = dim_head, dropout = dropout)),
+                    PreNorm(dim, Attention(dim, heads = heads, dim_head = dim_head, dropout = dropout)),
                     PreNorm(dim, FeedForward(dim, mlp_dim, dropout = dropout))
                 ]))
 
