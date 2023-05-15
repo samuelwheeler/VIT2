@@ -692,7 +692,15 @@ class ViT(nn.Module):
             self.first_transformer = Transformer(attention_type = 'standard', dim = dim, depth = 2, heads = heads, dim_head = dim_head, mlp_dim = mlp_dim,
                                        dropout = dropout, num_patches = num_patches, fixed_size = False)
             #self.fix_length = nn.Linear(dim, 64, bias = False)
-            self.fl_net = nn.Sequential(
+            self.fl_net1 = nn.Sequential(
+                nn.Linear(dim, 64),
+                nn.GELU(),
+                nn.Dropout(dropout),
+                nn.Linear(64, 64),
+                nn.Dropout(dropout)
+            )
+
+            self.fl_net2 = nn.Sequential(
                 nn.Linear(dim, 64),
                 nn.GELU(),
                 nn.Dropout(dropout),
@@ -721,9 +729,13 @@ class ViT(nn.Module):
         x += self.pos_embedding[:, :(64 + 1)]
         x = self.dropout(x)
         if self.fixed_size:
-            x = self.first_transformer(x)
-            y = self.fl_net(x)
+            y = self.first_transformer(x)
+            y = self.fl_net1(y)
+            print(y.shape)
+            print(x.shape)
+            #x = self.fl_net2(x)
             x = torch.matmul(y.transpose(-1, -2),x)
+            #x = self.fl_next(x)
             #x = self.fl_normer(x)
             #x = self.fl_next(x)
         if self.atn_type == 'transposed':
