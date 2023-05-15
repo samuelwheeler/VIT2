@@ -731,8 +731,6 @@ class ViT(nn.Module):
         if self.fixed_size:
             y = self.first_transformer(x)
             y = self.fl_net1(y)
-            print(y.shape)
-            print(x.shape)
             #x = self.fl_net2(x)
             x = torch.matmul(y.transpose(-1, -2),x)
             #x = self.fl_next(x)
