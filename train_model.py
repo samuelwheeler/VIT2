@@ -18,17 +18,17 @@ from torch.optim.lr_scheduler import MultiStepLR
 
 
 # set hyperparameters and initial conditions
-batch_size = 512
+batch_size = 1024
 image_size = (32,32)
 patch_size = (4,4)
 channels = 3
 dim = 512
-numblocks = 6
+numblocks = 10
 hidden_dim = dim
 heads = 8
 #dropout = 0.1
 state_path = 'ViT_model_state'
-epochs = 20
+epochs = 200
 initial_lr = 0.0001
 pre_layers = 2
 
@@ -111,6 +111,11 @@ testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size,
 
 classes = ('plane', 'car', 'bird', 'cat',
            'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
+
+
+# print the number of trainable parameters in the model:
+num_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+print(f'Number of trainable parameters: {num_params}')
 
 start_time = time.time()
 #model = model.to(device)    
