@@ -18,15 +18,15 @@ from torch.optim.lr_scheduler import MultiStepLR
 
 
 # set hyperparameters and initial conditions
-batch_size = 1024
+batch_size = 512
 image_size = (32,32)
 patch_size = (4,4)
 channels = 3
-dim = 750
+dim = 512
 numblocks = 10
 hidden_dim = dim
 heads = 8
-#dropout = 0.1
+dropout = 0.1
 state_path = 'ViT_model_state'
 epochs = 150
 initial_lr = 0.0001
@@ -42,7 +42,7 @@ print(device)
 
 # define model:
 model = ViT_model.ViT(image_size = image_size, patch_size = patch_size, num_classes = 10, dim = dim, depth = numblocks, mlp_dim = dim, attention_type = 'standard', 
-            heads = heads, dropout = 0., emb_dropout = 0., fixed_size = False, pre_layers = pre_layers)
+            heads = heads, dropout = dropout, emb_dropout = dropout, fixed_size = False, pre_layers = pre_layers)
 starting_epoch = 0
 
 # try:
