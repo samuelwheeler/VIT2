@@ -16,7 +16,7 @@ from tqdm import tqdm
 import pandas as pd
 from torch.optim.lr_scheduler import MultiStepLR
 
-
+torch.manual_seed(0)
 # set hyperparameters and initial conditions
 batch_size = 512
 image_size = (32,32)
@@ -41,7 +41,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(device)
 
 # define model:
-model = ViT_model.ViT(image_size = image_size, patch_size = patch_size, num_classes = 10, dim = dim, depth = numblocks, mlp_dim = dim, attention_type = 'qrandom_shuffled', 
+model = ViT_model.ViT(image_size = image_size, patch_size = patch_size, num_classes = 10, dim = dim, depth = numblocks, mlp_dim = dim, attention_type = 'krandom_shuffled', 
             heads = heads, dropout = dropout, emb_dropout = dropout, fixed_size = False, pre_layers = pre_layers)
 starting_epoch = 0
 
