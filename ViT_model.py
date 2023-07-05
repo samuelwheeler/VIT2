@@ -82,12 +82,13 @@ class All_Same_Shuffle(nn.Module):
             nn.Linear(inner_dim, dim),
             nn.Dropout(dropout)
         ) if project_out else nn.Identity()
-        perm1 = list(range(dim)) + random.sample(range(dim, l*dim), (l-1)*dim)
+        perm = list(range(dim)) + random.sample(range(dim, l*dim), (l-1)*dim)
+        self.perm = torch.tensor(perm, requires_grad = False)
 
     def forward(self, x):
         flat_x = x.flatten(start_dim=1)
 
-        flat_x_shuffled = flat_x[:, self.permq]
+        flat_x_shuffled = flat_x[:, self.perm]
 
         shuffled_x = flat_x_shuffled.view(x.size())
         
