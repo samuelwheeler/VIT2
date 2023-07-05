@@ -67,7 +67,7 @@ class Attention(nn.Module):
         return self.to_out(out)
         
 class All_Same_Shuffle(nn.Module):
-    def __init__(self, dim, heads = 8, dim_head = 64, dropout = 0.):
+    def __init__(self, dim, l, heads = 8, dim_head = 64, dropout = 0.):
         super().__init__()
         inner_dim = dim_head *  heads
         project_out = not (heads == 1 and dim_head == dim)
@@ -682,7 +682,7 @@ class Transformer(nn.Module):
         elif attention_type == 'all_same_shuffle':
             for _ in range(depth):
                 self.layers.append(nn.ModuleList([
-                    PreNorm(dim, All_Same_Shuffle(dim, heads = heads, dim_head = dim_head, dropout = dropout)),
+                    PreNorm(dim, All_Same_Shuffle(dim, heads = heads, dim_head = dim_head, dropout = dropout, l = dim if fixed_size else num_patches + 1)),
                     PreNorm(dim, FeedForward(dim, mlp_dim, dropout = dropout))
                 ]))
 
