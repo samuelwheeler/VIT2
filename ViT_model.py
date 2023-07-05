@@ -681,7 +681,7 @@ class Transformer(nn.Module):
                 ]))
         elif attention_type == 'all_same_shuffle':
             for _ in range(depth):
-                self.layers.append(nn.ModuleLust([
+                self.layers.append(nn.ModuleList([
                     PreNorm(dim, All_Same_Shuffle(dim, heads = heads, dim_head = dim_head, dropout = dropout)),
                     PreNorm(dim, FeedForward(dim, mlp_dim, dropout = dropout))
                 ]))
