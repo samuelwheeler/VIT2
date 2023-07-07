@@ -597,12 +597,38 @@ class NoSoftMaxAttention(nn.Module):
         out = torch.matmul(dots, v)
         out = rearrange(out, 'b h n d -> b n (h d)')
         return self.to_out(out)
+        
+class Simple_Kron_Mixer(nn.Module):
+    def __init__(self, dim, num_patches, heads = 8, dim_head = 64, dropout = 0.):
+        super().__init__()
+        inner_dim = dim_head
+        # project_out = not (heads == 1 and dim_head == dim)
+        self.heads = heads
+        self.A_list = nn.ParameterList([nn.Parameter(torch.randn(num_patches, num_patches)) for head in range(self.heads)])
+        self.B_list = nn.ParameterList([nn.Parameter(torch.randn(dim, inner_dim)) for head in range(self.heads)])
+
+    def forward(self, x):
+        out = self.A_list[0] @ x @ self.B_list[0]
+        for head in range(1,self.heads):
+            out += self.A_list[head] @ x @ self.B_list[head]
+        return out
+    def get_approx(self):
+        sum = kron(self.B_list[0].detach().T, self.A_list[0].detach())
+        for head in range(1,self.heads):
+            sum += kron(self.B_list[head].detach().T, self.A_list[head].detach())
+        return sum
 
 class Transformer(nn.Module):
     def __init__(self, attention_type, dim, depth, heads, dim_head, mlp_dim, num_patches, fixed_size, dropout = 0.):
         super().__init__()
         self.layers = nn.ModuleList([])
-        if attention_type == 'standard':
+        if attention_type == 'kron':
+            for _ in range(depth):
+                self.layers.append(nn.ModuleList([
+                    PreNorm(dim, Simple_Kron_Mixer(dim, num_patches = num_patches+1, heads = heads, dim_head = dim_head, dropout = dropout)),
+                    PreNorm(dim, FeedForward(dim, mlp_dim, dropout = dropout))
+                ]))
+        elif attention_type == 'standard':
             for _ in range(depth):
                 self.layers.append(nn.ModuleList([
                     PreNorm(dim, Attention(dim, heads = heads, dim_head = dim_head, dropout = dropout)),
