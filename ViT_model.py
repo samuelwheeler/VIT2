@@ -13,6 +13,8 @@ import random
 
 def pair(t):
     return t if isinstance(t, tuple) else (t, t)
+def kron(A, B):
+    return (A[:, None, :, None] * B[None, :, None, :]).reshape(A.shape[0] * B.shape[0], A.shape[1] * B.shape[1])
 
 # classes
 
@@ -42,29 +44,60 @@ class Attention(nn.Module):
         super().__init__()
         inner_dim = dim_head *  heads
         project_out = not (heads == 1 and dim_head == dim)
-
+        self.dim_head = dim_head
         self.heads = heads
         self.scale = dim_head ** -0.5
 
         self.attend = nn.Softmax(dim = -1)
-        self.to_qkv = nn.Linear(dim, inner_dim * 3, bias = False)
-
-        self.to_out = nn.Sequential(
-            nn.Linear(inner_dim, dim),
-            nn.Dropout(dropout)
-        ) if project_out else nn.Identity()
+        self.to_q = nn.Parameter(torch.randn(dim, inner_dim))
+        self.to_k = nn.Parameter(torch.randn(dim, inner_dim))
+        self.to_v = nn.Parameter(torch.randn(dim, inner_dim))
+        self.projection = nn.Parameter(torch.randn(inner_dim, dim))
+        self.dropout = nn.Dropout(dropout)
+        # self.to_out = nn.Sequential(
+        #     nn.Linear(inner_dim, dim),
+        #     nn.Dropout(dropout)
+        # ) if project_out else nn.Identity()
 
     def forward(self, x):
-        qkv = self.to_qkv(x).chunk(3, dim = -1)
-        q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> b h n d', h = self.heads), qkv)
+        q,k,v = x @ self.to_q, x @ self.to_k, x @ self.to_v
+        q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> b h n d', h = self.heads), (q,k,v))
         dots = torch.matmul(q, k.transpose(-1, -2)) * self.scale
-
-        attn = self.attend(dots)
-
-
+        attn = self.attend(dots)  
+        #attn = dots
         out = torch.matmul(attn, v)
         out = rearrange(out, 'b h n d -> b n (h d)')
-        return self.to_out(out)
+        out = out @ self.projection
+        #out = self.dropout(out)
+        return out
+    def get_approx(self, x):
+        Qmat = (x @ self.to_q.detach())  
+        Kmat = (x @ self.to_k.detach())
+        
+        
+        Qmat, Kmat = map(lambda t: rearrange(t, 'b d (h dk) -> b h d dk', h = self.heads), (Qmat, Kmat))
+        #self.attend()(self.dim_head**-0.5) *
+        Amat = self.attend((self.dim_head**-0.5) * torch.matmul(Qmat, Kmat.transpose(-1,-2)))
+        # print(Amat.shape)
+        # print(self.projection.shape)
+        projs = rearrange(self.projection.detach(), '(h dk) d -> h dk d', h = self.heads)
+        Vmat = self.to_v.detach()
+        Vmat = rearrange(Vmat, 'd (h dk) -> h d dk', h = self.heads)
+        Bmat = torch.matmul(Vmat, projs)
+        # Bmat = Bmat.transpose(-1,-2)
+        Amat = torch.mean(Amat, dim = 0)
+        Amat = Amat.chunk(self.heads, dim = 0)
+        Bmat = Bmat.chunk(self.heads, dim = 0)
+        mat = kron(Bmat[0].squeeze().T, Amat[0].squeeze())
+        sum = kron(Bmat[0].squeeze().T, Amat[0].squeeze())
+        krons = [mat]
+        for head in range(1, self.heads):
+            mat = kron(Bmat[head].squeeze().T, Amat[head].squeeze())
+            krons.append(mat)
+            sum += kron(Bmat[head].squeeze().T, Amat[head].squeeze())
+        # print('Kron trace  ', torch.trace(sum))
+        krons.append(sum)
+        return krons
         
 class All_Same_Shuffle(nn.Module):
     def __init__(self, dim, l, heads = 8, dim_head = 64, dropout = 0.):
