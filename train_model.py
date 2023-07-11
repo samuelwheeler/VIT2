@@ -15,6 +15,7 @@ import time
 from tqdm import tqdm
 import pandas as pd
 from torch.optim.lr_scheduler import MultiStepLR
+from autoaugment import CIFAR10Policy
 
 torch.manual_seed(0)
 # set hyperparameters and initial conditions
