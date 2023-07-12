@@ -19,7 +19,7 @@ from autoaugment import CIFAR10Policy
 
 torch.manual_seed(0)
 # set hyperparameters and initial conditions
-batch_size = 512
+batch_size = 128
 image_size = (32,32)
 patch_size = (4,4)
 channels = 3
