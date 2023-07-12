@@ -173,24 +173,4 @@ for epoch in range(epochs):
                 g['lr'] = lr'''
     print(f'Epoch: {epoch + 1 + starting_epoch}, Train Acc: {train_acc}, Test Acc: {test_acc}')
 total_time = time.time() - start_time
-
-
-training_history = None
-try:
-    training_history = pd.read_csv('ViT_training_results')
-except:
-   training_history = None
-   print('No training history found')
-
-
-
-df = pd.DataFrame({'train_accs':train_accs, 'test_accs':test_accs})
-
-if training_history is not None:
-    training_history = training_history.append(df).reset_index(drop = True)
-    training_history.to_csv('ViT_training_results')
-else:
-    df.to_csv('ViT_training_results')
-
-state = {'epoch': starting_epoch + 100, 'model_state_dict': model.state_dict(), 'optimizer_state_dict': optimizer.state_dict()}
-torch.save(state, state_path)
+print(total_time)
